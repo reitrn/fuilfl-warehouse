@@ -210,11 +210,17 @@ function grantMediaPermissions() {
   const trusted = (url) => { try { return new URL(url).origin === new URL(PORTAL_URL).origin; } catch { return false; } };
   const ses = session.defaultSession;
   ses.setPermissionRequestHandler((wc, permission, cb) => {
-    if ((permission === 'media' || permission === 'camera' || permission === 'microphone') && trusted(wc.getURL())) return cb(true);
+    // Camera/mic for the bench recorder, and the CLIPBOARD so "Copy link"
+    // works. Clipboard was denied by the catch-all below, so copying a share
+    // link silently did nothing in the app while working fine in a browser —
+    // no error, just an empty clipboard (Charlie, 2026-09-19).
+    const allowed = ['media', 'camera', 'microphone', 'clipboard-read', 'clipboard-write', 'clipboard-sanitized-write'];
+    if (allowed.includes(permission) && trusted(wc.getURL())) return cb(true);
     cb(false);
   });
   ses.setPermissionCheckHandler((wc, permission, requestingOrigin) => {
-    if (permission === 'media' || permission === 'camera' || permission === 'microphone') {
+    const allowed = ['media', 'camera', 'microphone', 'clipboard-read', 'clipboard-write', 'clipboard-sanitized-write'];
+    if (allowed.includes(permission)) {
       return trusted(requestingOrigin || (wc && wc.getURL()) || '');
     }
     return false;

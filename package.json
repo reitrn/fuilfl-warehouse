@@ -1,11 +1,11 @@
 {
   "name": "reitrn-warehouse",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "reitrn. Warehouse — one desktop station app for the reitrn warehouse: inspection, scanning, webcam capture and built-in label printing. Pointed at Lite (portal) or Hub (ReturnHub) by config.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win"
+    "build": "electron-builder --win --publish never"
   },
   "dependencies": {
     "electron-store": "^8.2.0"
@@ -20,17 +20,22 @@
     "copyright": "reitrn.",
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "icon": "assets/icon.ico",
+      "icon": "assets/icon.png",
       "artifactName": "reitrn-warehouse-setup.exe"
     },
     "nsis": {
       "oneClick": true,
       "runAfterFinish": true,
       "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico"
+      "uninstallerIcon": "assets/icon.ico",
+      "artifactName": "reitrn-warehouse-setup.exe"
     },
     "files": [
       "main.js",
@@ -42,6 +47,11 @@
       "lock/**/*",
       "assets/**/*",
       "node_modules/**/*"
-    ]
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "reitrn",
+      "repo": "reitrn-warehouse"
+    }
   }
 }
