@@ -19,7 +19,7 @@ jobs:
     # Each repo releases its own brand: reitrn-warehouse → reitrn, fuilfl-warehouse → fuilfl (same code, two remotes).
     strategy:
       matrix:
-        brand: [${{ endsWith(github.repository, 'fuilfl-warehouse') && 'fuilfl' || 'reitrn' }}]
+        brand: ["${{ endsWith(github.repository, 'fuilfl-warehouse') && 'fuilfl' || 'reitrn' }}"]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
