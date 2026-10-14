@@ -6,11 +6,11 @@ const path = require('path');
 
 const BRANDS = {
   reitrn: {
-    key: 'reitrn', name: 'reitrn Warehouse', word: 'reitrn', appId: 'com.reitrn.warehouse', uaToken: 'reitrnWarehouse',
+    key: 'reitrn', name: 'reitrn Warehouse', pkgName: 'reitrn-warehouse', word: 'reitrn', appId: 'com.reitrn.warehouse', uaToken: 'reitrnWarehouse',
     portalUrl: 'https://portal.reitrn.com', assets: 'assets', livingGradient: true, fixedGradient: null, artifact: 'reitrn-warehouse-setup.exe', pingApp: 'reitrn-warehouse',
   },
   fuilfl: {
-    key: 'fuilfl', name: 'fuilfl Warehouse', word: 'fuilfl', appId: 'com.fuilfl.warehouse', uaToken: 'fuilflWarehouse',
+    key: 'fuilfl', name: 'fuilfl Warehouse', pkgName: 'fuilfl-warehouse', word: 'fuilfl', appId: 'com.fuilfl.warehouse', uaToken: 'fuilflWarehouse',
     portalUrl: 'https://portal.fuilfl.com', assets: 'assets/fuilfl', livingGradient: false, fixedGradient: { start: '#00C4A7', end: '#2F7BFF' }, artifact: 'fuilfl-warehouse-setup.exe', pingApp: 'fuilfl-warehouse',
   },
 };

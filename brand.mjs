@@ -12,6 +12,8 @@ if (!b) { console.error(`unknown brand "${key}" — one of ${Object.keys(BRANDS)
 
 writeFileSync('brand.json', JSON.stringify({ brand: key }, null, 2) + '\n');
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+pkg.name = b.pkgName;   // the install folder is %LOCALAPPDATA%\Programs\<name> — it MUST differ per brand, or one
+                        // brand's installer lands on top of the other's files (1.2.3 fuilfl ran reitrn's old asar)
 pkg.build.appId = b.appId;
 pkg.build.productName = b.name;
 pkg.build.nsis.installerIcon = `${b.assets}/icon.ico`;
@@ -20,4 +22,4 @@ pkg.build.nsis.artifactName = b.artifact;
 pkg.build.win.icon = `${b.assets}/icon.png`;
 pkg.build.win.artifactName = b.artifact;
 writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-console.log(`brand → ${key}: ${b.name}, ${b.appId}, ${b.artifact}`);
+console.log(`brand → ${key}: ${b.name}, ${b.pkgName}, ${b.appId}, ${b.artifact}`);
