@@ -1,8 +1,8 @@
 name: Build & Release
 
 # A tag v1.2.3 builds the Windows installer and publishes it as a GitHub Release. The portal's Settings →
-# Warehouse app links to .../releases/latest/download/reitrn-warehouse-setup.exe (fuilfl: fuilfl-warehouse-setup.exe —
-# the matrix builds both from one tag), so a new tag is a new
+# Warehouse app links to .../releases/latest/download/reitrn-warehouse-setup.exe (fuilfl: the same code is pushed to
+# github.com/reitrn/fuilfl-warehouse, whose releases carry fuilfl-warehouse-setup.exe), so a new tag is a new
 # download with nothing else to touch. Run by hand (workflow_dispatch) to test a build without releasing.
 on:
   push:
@@ -16,9 +16,10 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    # Each repo releases its own brand: reitrn-warehouse → reitrn, fuilfl-warehouse → fuilfl (same code, two remotes).
     strategy:
       matrix:
-        brand: [reitrn, fuilfl]
+        brand: [${{ endsWith(github.repository, 'fuilfl-warehouse') && 'fuilfl' || 'reitrn' }}]
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
