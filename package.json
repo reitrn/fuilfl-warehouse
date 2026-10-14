@@ -1,6 +1,6 @@
 {
   "name": "reitrn-warehouse",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "reitrn. Warehouse — one desktop station app for the reitrn warehouse: inspection, scanning, webcam capture and built-in label printing. Pointed at Lite (portal) or Hub (ReturnHub) by config.",
   "main": "main.js",
   "scripts": {
@@ -46,7 +46,10 @@
       "lock-preload.js",
       "lock/**/*",
       "assets/**/*",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "brand.js",
+      "brand.json",
+      "splash/**/*"
     ],
     "publish": {
       "provider": "github",
