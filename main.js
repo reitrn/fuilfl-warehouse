@@ -115,6 +115,7 @@ async function rasterizePng(svg, size){
 let _lastIconKey = null;
 async function applyWeekIcons(force){
   try {
+    if (brand.fixedGradient) return;   // fuilfl: the packaged fuilfl. icon stays — the painted mark here is reitrn's "ri."
     const g = weekGradient();
     const key = g.start + g.end;
     if (!force && key === _lastIconKey) return;   // unchanged week → skip the work
