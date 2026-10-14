@@ -1,4 +1,5 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, session, shell, nativeImage } = require('electron');
+const brand = require('./brand');   // reitrn or fuilfl — name, portal, icons, gradient (see brand.js)
 const path = require('path');
 const http = require('http');
 const https = require('https');
@@ -21,7 +22,7 @@ const stationName = () => store.get('stationName') || machineName;
 // Enterprise–3PL stations → the console Inspect bench, brand plans → the
 // workbench (founder, 2026-07-03: the app reflects the enterprise hub).
 // Dev: REITRN_PORTAL_URL=http://localhost:3002 npm start
-const PORTAL_URL = (process.env.REITRN_PORTAL_URL || 'https://portal.reitrn.com').replace(/\/$/, '');
+const PORTAL_URL = (process.env.REITRN_PORTAL_URL || brand.portalUrl).replace(/\/$/, '');
 const WAREHOUSE_URL = process.env.REITRN_WAREHOUSE_URL || `${PORTAL_URL}/`;
 const LOCAL_PORT = 3010; // same contract the warehouse UI already calls for printing
 // Which merchant account this station belongs to — drives the staff PIN login.
@@ -82,9 +83,9 @@ let recentJobs = (store.get('recentJobs', []) || []).map((j) => ({ ...j, time: j
 let pageConsoleLog = [];   // last ~200 page console entries — served on /console-log
 let videoOutboxTimer = null; // store-and-forward upload worker (video-outbox/)
 
-app.setName('reitrn Warehouse');
+app.setName(brand.name);
 // Windows: group + icon the taskbar entry under our identity, not Electron's.
-if (process.platform === 'win32') app.setAppUserModelId('com.reitrn.warehouse');
+if (process.platform === 'win32') app.setAppUserModelId(brand.appId);
 
 // ── The living gradient — the running window + tray icon shift colour each week.
 // (The packaged .exe/.ico stays fixed; this only recolours the icon while running.)
@@ -99,7 +100,7 @@ function _rgblerp(a,b,t){function p(v){return('0'+Math.round(v).toString(16)).sl
 const _HSL = WK_ANCHORS.map((a) => { const r = _h2r(a); return _r2hsl(r[0], r[1], r[2]); });
 function _baseHsl(frac){var pos=frac*12,i=Math.floor(pos),t=pos-i;i=((i%12)+12)%12;var j=(i+1)%12,X=_HSL[i],Y=_HSL[j];return{h:_lerpH(X.h,Y.h,t),s:X.s+(Y.s-X.s)*t,l:X.l+(Y.l-X.l)*t};}
 const _DR=[254,39,18],_DT=[0,184,154],_DW=[];for(let k=0;k<52;k++){if(Math.floor(k/52*12)===11)_DW.push(k);}
-function weekGradient(){const d=new Date(),s=new Date(d.getFullYear(),0,1),w=Math.max(0,Math.min(51,Math.floor((d-s)/(7*86400000))));if(Math.floor(w/52*12)===11){const i=_DW.indexOf(w),n=_DW.length;return{start:_rgblerp(_DR,_DT,i/n),end:_rgblerp(_DR,_DT,(i+1)/n)};}const b=_baseHsl((w+0.5)/52);return{start:_hsl2hex(b.h-14,b.s,b.l+0.10),end:_hsl2hex(b.h+14,b.s,b.l-0.10)};}
+function weekGradient(){if(brand.fixedGradient)return{start:brand.fixedGradient.start,end:brand.fixedGradient.end,mid:brand.fixedGradient.start};const d=new Date(),s=new Date(d.getFullYear(),0,1),w=Math.max(0,Math.min(51,Math.floor((d-s)/(7*86400000))));if(Math.floor(w/52*12)===11){const i=_DW.indexOf(w),n=_DW.length;return{start:_rgblerp(_DR,_DT,i/n),end:_rgblerp(_DR,_DT,(i+1)/n)};}const b=_baseHsl((w+0.5)/52);return{start:_hsl2hex(b.h-14,b.s,b.l+0.10),end:_hsl2hex(b.h+14,b.s,b.l-0.10)};}
 const RI_PATHS = '<path d="M28.76,132.71V59.55h22.18v13.35h.79c1.31-4.84,3.48-8.43,6.51-10.76,3.03-2.33,6.55-3.5,10.57-3.5,1.05,0,2.15.07,3.3.2,1.16.13,2.21.33,3.17.59v19.89c-1.09-.39-2.52-.69-4.29-.88s-3.35-.29-4.74-.29c-2.79,0-5.3.62-7.52,1.86s-3.97,2.96-5.23,5.14c-1.27,2.18-1.9,4.73-1.9,7.66v39.91h-22.83Z"/><path d="M90.51,50.98c-3.23,0-6-1.08-8.31-3.24-2.31-2.16-3.47-4.74-3.47-7.75s1.16-5.65,3.47-7.79c2.31-2.14,5.08-3.21,8.31-3.21s6.06,1.07,8.38,3.21c2.31,2.14,3.47,4.75,3.47,7.85s-1.16,5.58-3.47,7.72c-2.31,2.14-5.1,3.21-8.38,3.21ZM79.13,132.71V59.55h22.83v73.15h-22.83Z"/><path d="M128.96,141.08c-3.49,0-6.42-1.17-8.8-3.5-2.38-2.33-3.57-5.25-3.57-8.74s1.19-6.33,3.57-8.67c2.38-2.33,5.31-3.5,8.8-3.5s6.42,1.17,8.8,3.5c2.38,2.33,3.57,5.22,3.57,8.67s-1.19,6.4-3.57,8.74c-2.38,2.33-5.31,3.5-8.8,3.5Z"/>';
 function brandIconSvg(start, end){return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170.08 170.08"><defs><linearGradient id="g" x1="0" y1="0" x2="170.08" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="'+start+'"/><stop offset="1" stop-color="'+end+'"/></linearGradient></defs><rect width="170.08" height="170.08" rx="34" fill="url(#g)"/><g fill="#ffffff">'+RI_PATHS+'</g></svg>';}
 async function rasterizePng(svg, size){
@@ -138,7 +139,7 @@ app.on('ready', () => {
   // NOTE: pin-status is resolved in ready-to-show BEFORE anything is shown —
   // account first, then the gate decision, so a worker cold-starting the app
   // meets the PIN lock, never a flash of the bench (founder, 2026-07-03).
-  app.setLoginItemSettings({ openAtLogin: store.get('autoStart', true), name: 'reitrn Warehouse' });
+  app.setLoginItemSettings({ openAtLogin: store.get('autoStart', true), name: brand.name });
   // Colour the running window + tray icon for this week, and re-check every 6h so an
   // always-on station rolls over to the new colour without ever being restarted.
   applyWeekIcons(true);
@@ -237,7 +238,7 @@ function createSplash() {
     backgroundColor: '#FFFFFF', skipTaskbar: true, alwaysOnTop: false,
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
-  splashWindow.loadFile('splash/index.html');
+  splashWindow.loadFile('splash/index.html', { query: { brand: brand.key } });
   splashWindow.on('closed', () => { splashWindow = null; });
 }
 function closeSplash() {
@@ -248,9 +249,9 @@ function closeSplash() {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280, height: 832, minWidth: 1024, minHeight: 700,
-    title: 'reitrn Warehouse',
+    title: brand.name,
     backgroundColor: '#F7F7F9',
-    icon: path.join(__dirname, 'assets', 'icon.ico'),
+    icon: brand.asset('icon.ico'),
     autoHideMenuBar: true,
     frame: false, // the portal draws its own white top bar (window controls in the UI)
     backgroundColor: '#FFFFFF',
@@ -261,7 +262,7 @@ function createWindow() {
   // (the source of every boot flash). showMain() maximizes at the reveal.
   // Announce we're the desktop app so the portal login hides "Create account"
   // (accounts are made on the web; the app only signs in).
-  mainWindow.webContents.setUserAgent(`${mainWindow.webContents.getUserAgent()} reitrnWarehouse/${app.getVersion()}`);
+  mainWindow.webContents.setUserAgent(`${mainWindow.webContents.getUserAgent()} ${brand.uaToken}/${app.getVersion()}`);
   // Page-console tap → GET /console-log on the local server. The page is a
   // remote site (no devtools in production), so this is the only window into
   // client-side errors on stations.
@@ -364,7 +365,7 @@ function lockStation() {
   gatePassed = false;
   activeUser = null;
   if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
-  if (tray) tray.setToolTip(`reitrn Warehouse · ${stationName()}`);
+  if (tray) tray.setToolTip(`${brand.name} · ${stationName()}`);
   if (mainWindow) mainWindow.webContents.send('staffChanged', null);
   showLock();
 }
@@ -379,8 +380,8 @@ function armIdle() {
 
 // ── Tray ─────────────────────────────────────────────────────────────────────
 function createTray() {
-  tray = new Tray(path.join(__dirname, 'assets', 'tray.ico'));
-  tray.setToolTip(`reitrn Warehouse · ${stationName()}`);
+  tray = new Tray(brand.asset('tray.ico'));
+  tray.setToolTip(`${brand.name} · ${stationName()}`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open warehouse', click: openStation },
     { label: 'Lock / switch user', click: lockStation },
@@ -531,7 +532,7 @@ function handleRequest(req, res) {
   // sends a PNA preflight — answer it or detection breaks quietly.
   res.setHeader('Access-Control-Allow-Private-Network', 'true');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
-  if (req.method === 'GET' && req.url === '/ping') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, app: 'reitrn-warehouse', station: stationName() })); return; }
+  if (req.method === 'GET' && req.url === '/ping') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, app: brand.pingApp, station: stationName() })); return; }
   // The portal's browser pages call this to hand the bench over to the app:
   // brings the station window forward (or the PIN lock if nobody's signed in).
   if (req.method === 'GET' && req.url === '/open') {
@@ -662,8 +663,8 @@ ipcMain.handle('testPrint', async (e, printerName) => {
 });
 ipcMain.handle('setSetting', async (e, key, value) => {
   store.set(key, value);
-  if (key === 'autoStart') app.setLoginItemSettings({ openAtLogin: value, name: 'reitrn Warehouse' });
-  if (key === 'stationName' && tray) tray.setToolTip(`reitrn Warehouse · ${stationName()}`);
+  if (key === 'autoStart') app.setLoginItemSettings({ openAtLogin: value, name: brand.name });
+  if (key === 'stationName' && tray) tray.setToolTip(`${brand.name} · ${stationName()}`);
   if (key === 'idleLockMs') armIdle(); // apply the new timeout immediately
   if (key === 'merchantSlug') fetchPinConfigured(); // re-check the PIN gate for the new account
 });
@@ -702,7 +703,7 @@ ipcMain.handle('pinLogin', async (e, value) => {
       activeUser = data.user;
       gatePassed = true;
       armIdle(); // start the inactivity countdown for this session
-      if (tray) tray.setToolTip(`reitrn Warehouse · ${stationName()} · ${activeUser.name}`);
+      if (tray) tray.setToolTip(`${brand.name} · ${stationName()} · ${activeUser.name}`);
       // Tell the portal page who's at the bench (it inherits this identity)
       // and that the in-page lock may dismiss.
       if (mainWindow) mainWindow.webContents.send('staffChanged', activeUser);

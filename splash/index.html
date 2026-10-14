@@ -43,6 +43,7 @@
       if(Math.floor(w/52*12)===11){var i2=DW.indexOf(w),n=DW.length;g={start:rgblerp(DR,DT,i2/n),end:rgblerp(DR,DT,(i2+1)/n)};}
       else{var b0=baseHsl((w+0.5)/52);g={start:hsl2hex(b0.h-14,b0.s,b0.l+0.10),end:hsl2hex(b0.h+14,b0.s,b0.l-0.10)};}
       var wm=document.getElementById('wm');
+      if(new URLSearchParams(location.search).get('brand')==='fuilfl'){g={start:'#00C4A7',end:'#2F7BFF'};wm.textContent='fuilfl';document.title='fuilfl Warehouse';}
       wm.style.background='linear-gradient(90deg,'+g.start+','+g.end+')';
       wm.style.webkitBackgroundClip='text';wm.style.backgroundClip='text';wm.style.webkitTextFillColor='transparent';
       document.getElementById('dot').style.color=g.end;

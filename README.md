@@ -1,4 +1,8 @@
-# reitrn Warehouse
+# reitrn Warehouse · fuilfl Warehouse
+
+One codebase, two brands. `node brand.mjs fuilfl` before `npm run build` makes the fuilfl installer
+(`fuilfl-warehouse-setup.exe`, com.fuilfl.warehouse, portal.fuilfl.com, fixed teal→blue mark); the default is
+reitrn. The GitHub release workflow builds both from one `v*` tag. `APP_BRAND=fuilfl npm start` for dev.
 
 One desktop **station app** for the reitrn warehouse. It runs the inspection
 workflow on a warehouse PC and **replaces the separate Print Agent** — printing

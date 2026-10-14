@@ -377,7 +377,7 @@ function generateTestLabel(printerName) {
     return [
       '^XA',
       '^CI28',
-      '^FO30,30^A0N,32,32^FDreitrn Warehouse^FS',
+      `^FO30,30^A0N,32,32^FD${require('./brand').name}^FS`,
       '^FO30,74^A0N,24,24^FDTest label^FS',
       '^FO30,108^A0N,20,20^FD' + name + '^FS',
       '^FO30,140^BY2^BCN,70,Y,N,N^FDTEST-OK^FS',
@@ -391,7 +391,7 @@ function generateTestLabel(printerName) {
     'REFERENCE 0,0',
     'DIRECTION 0',
     'CLS',
-    'TEXT 50,100,"2",0,1,1,"reitrn Warehouse"',
+    `TEXT 50,100,"2",0,1,1,"${require('./brand').name}"`,
     'TEXT 50,150,"1",0,1,1,"Test label"',
     'TEXT 50,200,"0",0,1,1,"' + name + '"',
     'BARCODE 50,240,"128",60,1,0,2,2,"TEST-OK"',
