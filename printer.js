@@ -62,37 +62,102 @@ function getInstalledPrinters() {
  * @param {string} data
  * @returns {Promise<void>}
  */
-function printRaw(printerName, data) {
+// ── FAST PATH (1.2.5, founder 4 Nov 2026: "it's taking too long to send to the printer") ────────────────────────────
+// Before: every label went wmic → copy /b → a PowerShell script that compiled a .NET class on each print (2–4 s), because
+// the native printer module is not in the build. Now: the printer's port is looked up ONCE (PowerShell Get-Printer, wmic as
+// a fallback), remembered across restarts, and the raw bytes go straight to \\.\USBxxx (~50 ms) or to port 9100 for a
+// network printer. The spooler routes are the last resort, not the route. printRaw resolves { via, ms } for the job log.
+const fsx = require('fs');
+const netx = require('net');
+const { execFile: execFileX } = require('child_process');
+let portStore = { get: () => ({}), set: () => {} };
+/** main.js hands in the persistent store so a port survives a restart. */
+function setPortStore(s) { portStore = s; }
+const portMemo = {};
+function psText(cmd, timeout = 8000) {
+  return new Promise((resolve, reject) => execFileX('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd], { encoding: 'utf8', timeout, windowsHide: true },
+    (err, out, errOut) => (err ? reject(new Error(String(errOut || err.message).trim())) : resolve(String(out || '').trim()))));
+}
+async function resolvePort(printerName, force = false) {
+  if (!force) {
+    if (portMemo[printerName]) return portMemo[printerName];
+    const saved = (portStore.get() || {})[printerName];
+    if (saved && saved.port) { portMemo[printerName] = saved; return saved; }
+  }
+  const esc = printerName.replace(/'/g, "''");
+  let port = '';
+  try { port = await psText(`(Get-Printer -Name '${esc}').PortName`); } catch (e) { console.warn('[Printer] Get-Printer:', e.message); }
+  if (!port) {
+    try {
+      const out = await new Promise((res, rej) => execFileX('wmic', ['printer', 'where', `name='${printerName.replace(/"/g, '')}'`, 'get', 'PortName', '/format:list'], { encoding: 'utf8', timeout: 8000, windowsHide: true }, (e, o) => (e ? rej(e) : res(o))));
+      const m = String(out).match(/PortName=(.+)/); if (m) port = m[1].trim();
+    } catch (e) { console.warn('[Printer] wmic:', e.message); }
+  }
+  if (!port) throw new Error(`Could not find the port for "${printerName}"`);
+  let host = null;
+  if (!/^USB\d+$/i.test(port)) {
+    try { const h = await psText(`(Get-PrinterPort -Name '${port.replace(/'/g, "''")}').PrinterHostAddress`); if (h && /^[\w.\-]+$/.test(h)) host = h; } catch { /* not a TCP port */ }
+  }
+  const info = { port, host, at: Date.now() };
+  portMemo[printerName] = info;
+  try { portStore.set({ ...(portStore.get() || {}), [printerName]: info }); } catch { /* memo is enough */ }
+  console.log(`[Printer] Port for "${printerName}" = ${port}${host ? ` (${host}:9100)` : ''}`);
+  return info;
+}
+function writeUsb(port, bytes) {
   return new Promise((resolve, reject) => {
-    if (nodePrinter) {
-      nodePrinter.printDirect({
-        data,
-        printer: printerName,
-        type: 'RAW',
-        success: (jobId) => {
-          console.log(`[Printer] Job ${jobId} sent to "${printerName}"`);
-          resolve();
-        },
-        error: (err) => {
-          console.error(`[Printer] Print failed:`, err);
-          reject(new Error(String(err)));
-        },
-      });
-    } else {
-      // Try direct USB port write → copy /b → WinSpool (in order of reliability)
-      printViaUsbPort(printerName, data)
-        .then(resolve)
-        .catch((usbErr) => {
-          console.warn('[Printer] Direct USB port write failed, trying copy /b:', usbErr.message);
-          return printViaCopy(printerName, data);
-        })
-        .then(resolve)
-        .catch((copyErr) => {
-          console.warn('[Printer] copy /b failed, trying WinSpool:', copyErr.message);
-          printViaPowerShell(printerName, data).then(resolve).catch(reject);
-        });
-    }
+    fsx.open(`\\\\.\\${port}`, 'w', (e, fd) => {
+      if (e) return reject(e);
+      fsx.write(fd, bytes, 0, bytes.length, null, (we, n) => { fsx.close(fd, () => {}); if (we) reject(we); else resolve(n); });
+    });
   });
+}
+function writeTcp(host, bytes) {
+  return new Promise((resolve, reject) => {
+    const s = netx.connect(9100, host);
+    const t = setTimeout(() => { s.destroy(); reject(new Error(`${host}:9100 timed out`)); }, 5000);
+    s.once('connect', () => s.end(bytes));
+    s.once('close', () => { clearTimeout(t); resolve(bytes.length); });
+    s.once('error', (e) => { clearTimeout(t); reject(e); });
+  });
+}
+async function printDirect(printerName, bytes) {
+  const attempt = async (i) => {
+    if (/^USB\d+$/i.test(i.port)) { await writeUsb(i.port, bytes); return `usb ${i.port}`; }
+    if (i.host) { await writeTcp(i.host, bytes); return `tcp ${i.host}`; }
+    throw new Error(`port ${i.port} is not USB or network`);
+  };
+  try { return await attempt(await resolvePort(printerName)); }
+  catch (e) {
+    // a re-plugged printer can come back on another USB port — look it up again once before giving up on the fast path
+    console.warn('[Printer] direct write failed, re-reading the port:', e.message);
+    return attempt(await resolvePort(printerName, true));
+  }
+}
+/** Look the ports up ahead of the first label (app start, printer chosen). */
+async function warmPorts(names) {
+  for (const n of (names || []).filter(Boolean)) { try { await resolvePort(n); } catch (e) { console.warn('[Printer] warm:', e.message); } }
+}
+
+/**
+ * Send raw print data (TSPL or ZPL) to a named printer. Resolves { via, ms } — how it got there and how long it took.
+ * @param {string} printerName
+ * @param {string|Buffer} data
+ */
+async function printRaw(printerName, data) {
+  const bytes = Buffer.isBuffer(data) ? data : Buffer.from(data, 'utf8');
+  const t0 = Date.now();
+  const done = (via) => { const ms = Date.now() - t0; console.log(`[Printer] ${via} · ${bytes.length} bytes · ${ms} ms → "${printerName}"`); return { via, ms }; };
+  if (nodePrinter) {
+    await new Promise((resolve, reject) => nodePrinter.printDirect({ data: bytes, printer: printerName, type: 'RAW', success: () => resolve(), error: (err) => reject(new Error(String(err))) }));
+    return done('native');
+  }
+  try { return done(await printDirect(printerName, bytes)); }
+  catch (e) { console.warn('[Printer] fast path failed, falling back to the spooler:', e.message); }
+  try { await printViaCopy(printerName, bytes); return done('copy'); }
+  catch (e) { console.warn('[Printer] copy /b failed, trying WinSpool:', e.message); }
+  await printViaPowerShell(printerName, bytes);
+  return done('winspool');
 }
 
 /**
@@ -400,4 +465,4 @@ function generateTestLabel(printerName) {
   ].join('\n');
 }
 
-module.exports = { getInstalledPrinters, printRaw, generateTestLabel, detectPrinterLanguage, getPortNameForPrinter: getPortName };
+module.exports = { getInstalledPrinters, printRaw, generateTestLabel, detectPrinterLanguage, getPortNameForPrinter: getPortName, setPortStore, warmPorts, resolvePort };

@@ -6,9 +6,11 @@ const https = require('https');
 const fs = require('fs');
 const os = require('os');
 const Store = require('electron-store');
-const { getInstalledPrinters, printRaw, generateTestLabel } = require('./printer');
+const { getInstalledPrinters, printRaw, generateTestLabel, setPortStore, warmPorts } = require('./printer');
 
 const store = new Store();
+// printer ports survive a restart, so the first label of the day is as fast as the rest (printer.js fast path, 1.2.5)
+setPortStore({ get: () => store.get('printerPorts', {}), set: (v) => store.set('printerPorts', v) });
 
 // Station identity = the machine, the way ReturnHub names stations via its agent.
 // Defaults to the computer name; a renamable alias overrides it. Reported to the
@@ -137,6 +139,7 @@ app.on('ready', () => {
   createTray();
   createWindow();
   startLocalServer();
+  void warmPorts([store.get('printer', ''), store.get('courierPrinter', '')]);
   // NOTE: pin-status is resolved in ready-to-show BEFORE anything is shown —
   // account first, then the gate decision, so a worker cold-starting the app
   // meets the PIN lock, never a flash of the bench (founder, 2026-07-03).
@@ -646,7 +649,7 @@ function handleRequest(req, res) {
         if (!data) { addRecentJob({ id, printer: printerName, printerRole: role, status: 'error', time: new Date(), error: 'No printable data' }); return; }
         addRecentJob({ id, printer: printerName, printerRole: role, status: 'printing', time: new Date() });
         printRaw(printerName, data)
-          .then(() => addRecentJob({ id, printer: printerName, printerRole: role, status: 'done', time: new Date() }))
+          .then((r) => addRecentJob({ id, printer: printerName, printerRole: role, status: 'done', time: new Date(), via: r && r.via, ms: r && r.ms }))
           .catch((err) => addRecentJob({ id, printer: printerName, printerRole: role, status: 'error', time: new Date(), error: err.message }));
       } catch (err) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: err.message })); }
     });
@@ -668,6 +671,7 @@ ipcMain.handle('setSetting', async (e, key, value) => {
   if (key === 'stationName' && tray) tray.setToolTip(`${brand.name} · ${stationName()}`);
   if (key === 'idleLockMs') armIdle(); // apply the new timeout immediately
   if (key === 'merchantSlug') fetchPinConfigured(); // re-check the PIN gate for the new account
+  if (key === 'printer' || key === 'courierPrinter') void warmPorts([value]); // look the port up now, not on the first label
 });
 
 // PIN login from the lock screen. A 4–8 digit value is a typed PIN; anything else
